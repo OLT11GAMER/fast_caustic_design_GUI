@@ -3,7 +3,7 @@ name: Windows desktop release
 on:
   push:
     branches: [master]
-    paths: [desktop/VERSION]
+    paths: [desktop/VERSION, .github/workflows/desktop-release.yml]
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: windows-desktop-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   package:
@@ -42,7 +42,7 @@ jobs:
           python -m pip install -r desktop/requirements.txt "pyinstaller>=6.12,<7"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python -m PyInstaller --noconfirm --windowed --name FastCausticDesign `
-            --collect-all tkinterdnd2 --add-binary "build/Release/caustic_design.exe:engine" `
+            --add-binary "build/Release/caustic_design.exe:engine" `
             --add-data "data/ring.png:data" desktop/app.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Copy-Item LICENSE.GPL3.md, LICENSE.MPL2.md, README.md dist/FastCausticDesign/

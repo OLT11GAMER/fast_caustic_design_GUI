@@ -9,6 +9,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import traceback
+from types import SimpleNamespace
 
 from PIL import Image, ImageTk
 from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -364,10 +365,18 @@ def smoke_test(output):
         root = TkinterDnD.Tk()
         app = App(root, True)
         root.update()
-        sample = ASSETS / "data" / "ring.png"
-        app.target.pattern = prepare_image(sample)
-        app.target.path = sample
-        app.target.refresh()
+        sample = output / "ring sample.png"
+        sample.write_bytes((ASSETS / "data" / "ring.png").read_bytes())
+        if not root.tk.call("package", "present", "tkdnd"):
+            raise RuntimeError("The bundled TkDND library did not load.")
+        if not root.tk.call("bind", app.target.preview, "<<Drop>>"):
+            raise RuntimeError("Target preview has no drop binding.")
+        def fail_import(message):
+            raise RuntimeError(message)
+        app.error = fail_import
+        drop_data = root.tk.call("format", "%s", root.tk.call("list", str(sample)))
+        if app.target.drop(SimpleNamespace(data=drop_data)) != "copy":
+            raise RuntimeError("Could not import the sample using the drop handler.")
         root.destroy()
         app.target.pattern.save(output / "target.png")
         process = start_solver(output, {"-res": 24}, False)

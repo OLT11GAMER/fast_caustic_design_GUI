@@ -140,13 +140,10 @@ add_library(otapputils ${OTAPPUTILS_SRC_FILES})
 
 add_executable(caustic_design apps/caustic_design.cpp)
 
-target_link_libraries(caustic_design PRIVATE PNG::PNG)
-
 target_link_libraries(otapputils
     PRIVATE
         Ceres::ceres
         ${ALLLIBS}
-
 )
 
 target_link_libraries(caustic_design

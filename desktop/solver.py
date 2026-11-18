@@ -44,7 +44,7 @@ def engine_path():
 
 
 def start_solver(folder, settings, has_source):
-    command = [str(engine_path()), "-in_trg", "target.png", "-output", "lens.obj"]
+    command = [str(engine_path()), "-in_trg", "target.png", "-output", "lens.obj", "-ratio", "1000"]
     if has_source:
         command += ["-in_src", "source.png"]
     for flag, value in settings.items():
@@ -69,7 +69,7 @@ def read_mesh(path):
                 vertices.append(vertex)
             elif fields and fields[0] == "f":
                 face = tuple(int(field) - 1 for field in fields[1:])
-                if len(face) != 3 or min(face) < 0 or max(face) >= len(vertices):
+                if len(face) != 3 or len(set(face)) != 3 or min(face) < 0 or max(face) >= len(vertices):
                     raise ValueError("The solver produced invalid triangles.")
                 faces.append(face)
     if not vertices or not faces:

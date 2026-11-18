@@ -43,19 +43,19 @@ void find_perimeter_vertices(int nx, int ny, std::vector<size_t> &perimeter_vert
         perimeter_vertices.push_back(i);
     }
 
-    // Right column
-    for (size_t i = nx - 1; i < nx * ny; i += nx) {
-        perimeter_vertices.push_back(i);
+    // Right column, after the top-right corner.
+    for (int row = 1; row < ny; ++row) {
+        perimeter_vertices.push_back(row * nx + nx - 1);
     }
 
-    // Bottom row
-    for (size_t i = nx * (ny - 1) + nx - 1; i > nx * (ny - 1) - 1; --i) {
-        perimeter_vertices.push_back(i);
+    // Bottom row, after the bottom-right corner.
+    for (int column = nx - 2; column >= 0; --column) {
+        perimeter_vertices.push_back((ny - 1) * nx + column);
     }
 
-    // Left column
-    for (size_t i = nx * (ny - 1) - nx; i > nx - 1; i -= nx) {
-        perimeter_vertices.push_back(i);
+    // Left column, excluding both corners.
+    for (int row = ny - 2; row > 0; --row) {
+        perimeter_vertices.push_back(row * nx);
     }
 }
 
