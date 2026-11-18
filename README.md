@@ -1,70 +1,66 @@
-# Fast caustic design: A fast high contrast freeform optics designer based on OTMap
+# Fast Caustic Design
 
-## Contact
+Turn an image into the geometry of a lens that projects its light pattern.
 
-This repository is an early open source prototype with significant limitations. A fully reworked commercial version supporting generic shapes and nearby point light sources is in active development. For custom pieces or professional enquiries, visit [dyopton.be](https://dyopton.be/) or contact dylan@dyopton.be.
+## Windows desktop app
 
-## Examples
+Download `FastCausticDesign-Windows-x64.zip` from [GitHub Releases](https://github.com/OLT11GAMER/fast_caustic_design_GUI/releases). Extract the entire ZIP, then double-click `FastCausticDesign.exe`.
 
-#### Ring:
-![ring simulation](data/ring_sim.png)
+1. Drop a photo or pattern into **Target pattern**, use **Browse**, or click **Try ring example**.
+2. Optionally import a source-light image. The default is uniform illumination.
+3. Set the lens dimensions and mesh resolution, then click **Generate lens**. Higher resolutions take longer. Use **Cancel** to stop generation or **Solver log** to inspect the output.
+4. Click **Export model** and save an OBJ or STL. You can export the same result again in the other format.
 
-```
-./caustic_design -res 512 -focal_l 1.5 -thickness 0.2 -width 1 -in_trg ../data/ring.png
-```
+The app accepts PNG, JPEG, WebP, BMP, GIF, and TIFF. It uses the first frame of animated images. It converts images to grayscale, fits them proportionally within a 256 × 256 grid with black padding, and treats transparency as black. The previews show the exact patterns passed to the solver. Use images with visible contrast.
 
-#### Einstein:
-![einstein simulation](data/einstein_sim.png)
+Use a consistent length unit for the width, focal distance, and thickness. Thickness sets the minimum distance between the flat back and optical surface. OBJ and STL do not store a length unit, so use the matching units when opening the model in a slicer or CAD program.
 
-```
-./caustic_design -res 512 -focal_l 1.5 -thickness 0.3 -width 1 -in_trg ../data/einstein.png
-```
-
-## Usage
-
-Download the latest build from [Releases](https://github.com/dylanmsu/fast_caustic_design/releases). 
-
-Run the command of one of the examples with the image locations properly filled out. After its complete the 3d model will be located in the directory above the directory of the exe.
 ## Build from source
 
-This code uses [Eigen](https://eigen.tuxfamily.org), Surface_mesh, and CImg that are already included in the repo/archive.
-The only libraries you need to install are [Ceres Solver](http://ceres-solver.org/) for the normal integration and libpng/libjpg for image IO.
+Clone the repository with its Eigen submodule.
 
-It is however highly recommended to install [SuiteSparse/Cholmod](http://faculty.cse.tamu.edu/davis/suitesparse.html) for higher performance.
-
-### Install dependencies on Windows:
-Install vcpkg:
 ```bash
-$ cd C:\
-$ git clone https://github.com/microsoft/vcpkg.git
-$ cd vcpkg
-$ .\bootstrap-vcpkg.bat
+git clone --recurse-submodules https://github.com/OLT11GAMER/fast_caustic_design_GUI.git
+cd fast_caustic_design_GUI
 ```
 
-Install Ceres solver and its dependencies:
-```bash
-$ ./vcpkg.exe install ceres[core] --triplet x64-windows-static
+### Windows
+
+Install CMake, Visual Studio with the C++ desktop workload, Python 3.12 with Tcl/Tk, and [vcpkg](https://learn.microsoft.com/vcpkg/get_started/get-started-msbuild). Set `VCPKG_ROOT` to your vcpkg directory and run these commands in PowerShell.
+
+```powershell
+& "$env:VCPKG_ROOT/vcpkg.exe" install "ceres[core]:x64-windows-static" "libpng:x64-windows-static"
+cmake -S . -B build -A x64 -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_DISABLE_FIND_PACKAGE_Cholmod=ON
+cmake --build build --config Release --parallel 2
+python -m pip install -r desktop/requirements.txt
+python desktop/app.py
 ```
 
-Install libpng
- and its dependencies:
+### Linux
+
+The GUI can also run from source. On Ubuntu, install the native dependencies and Python with Tk, then build and launch.
+
 ```bash
-$ vcpkg install libpng --triplet x64-windows-static
+sudo apt install build-essential cmake libceres-dev libpng-dev libjpeg-dev python3-tk python3-venv
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_DISABLE_FIND_PACKAGE_Cholmod=ON
+cmake --build build --parallel 2
+python3 -m venv .venv
+.venv/bin/pip install -r desktop/requirements.txt
+.venv/bin/python desktop/app.py
 ```
 
-All you then need to do is to clone the repo, configure a build directory with cmake, and then build.
+Set `CAUSTIC_SOLVER` to the full path to your executable if you build it in a different directory.
 
-Make sure the path in CMAKE_TOOLCHAIN_FILE is correct.
+## Command-line usage
 
-````bash
-$ git clone --recursive git@github.com:dylanmsu/fast_caustic_design.git
-$ cd fast_caustic_design
-$ mkdir build
-$ cd build
-$ cmake .. -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_BUILD_TYPE=Release
-$ cmake --build . --config Release
-$ ./Release/caustic_design.exe -res 512 -focal_l 1.5 -thickness 0.3 -width 1 -in_trg ../data/einstein.png
-````
+The native solver also runs from a terminal. It requires square target and optional source images.
+
+```bash
+./build/caustic_design -res 100 -focal_l 1.5 -thickness 0.2 -mesh_width 1 -in_trg data/ring.png -output ring-lens.obj
+./build/caustic_design -help
+```
+
+![Ring caustic simulation](data/ring_sim.png)
 
 ## How does it work
 Creating a lens surface whose shadow matches a target image involves two main steps:

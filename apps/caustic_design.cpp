@@ -1,3 +1,4 @@
+#include <exception>
 /*
  * Copyright (C) 2025 Dylan Missuwe
  *
@@ -690,7 +691,12 @@ int main(int argc, char** argv)
       std::vector<std::vector<double>> normals = fresnelMapping(mesh.source_points, trg_pts, r);
 
       // solve the mesh surface to align with the calculated target normals
-      normal_int.perform_normal_integration(mesh, normals);
+      try {
+        normal_int.perform_normal_integration(mesh, normals);
+      } catch (const std::exception& error) {
+        std::cerr << "Normal integration failed: " << error.what() << std::endl;
+        return EXIT_FAILURE;
+      }
   }
 
   // save obj

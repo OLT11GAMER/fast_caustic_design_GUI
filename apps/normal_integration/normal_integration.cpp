@@ -1,4 +1,5 @@
 #include "normal_integration.h"
+#include <stdexcept>
 
 normal_integration::normal_integration(/* args */)
 {
@@ -432,19 +433,21 @@ void normal_integration::perform_normal_integration(Mesh &mesh, std::vector<std:
     options.minimizer_progress_to_stdout = true;
     options.linear_solver_type = ceres::ITERATIVE_SCHUR;
     options.max_num_iterations = 200;
-    options.dense_linear_algebra_library_type = ceres::LAPACK;
     options.num_threads = 16;
 
     string error;
     if(!options.IsValid(&error))
     {
-        std::cout << "Options not valid: " << error << std::endl;
+        throw std::runtime_error(error);
     }
 
     Solver::Summary summary;
     Solve(options, &prob, &summary);
 
     std::cout << summary.FullReport() << std::endl;
+    if (!summary.IsSolutionUsable()) {
+        throw std::runtime_error(summary.BriefReport());
+    }
 
     for(uint i=0; i<mesh.source_points.size(); i++)
     {

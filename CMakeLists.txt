@@ -1,6 +1,5 @@
+cmake_minimum_required(VERSION 3.15)
 project(otmap)
-
-cmake_minimum_required(VERSION 3.2.0)
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -146,8 +145,8 @@ target_link_libraries(caustic_design PRIVATE PNG::PNG)
 target_link_libraries(otapputils
     PRIVATE
         Ceres::ceres
-        PNG::PNG
-        # JPEG::JPEG
+        ${ALLLIBS}
+
 )
 
 target_link_libraries(caustic_design

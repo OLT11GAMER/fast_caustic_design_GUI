@@ -1,0 +1,101 @@
+name: Windows desktop release
+
+on:
+  push:
+    branches: [master]
+    paths: [desktop/VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-desktop-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build the native solver
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install "ceres[core]:x64-windows-static" "libpng:x64-windows-static"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -S . -B build -A x64 `
+            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded `
+            -DCMAKE_DISABLE_FIND_PACKAGE_Cholmod=ON
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build build --config Release --parallel 2 --target caustic_design
+      - name: Package the desktop app
+        shell: pwsh
+        run: |
+          python -m pip install -r desktop/requirements.txt "pyinstaller>=6.12,<7"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m PyInstaller --noconfirm --windowed --name FastCausticDesign `
+            --collect-all tkinterdnd2 --add-binary "build/Release/caustic_design.exe:engine" `
+            --add-data "data/ring.png:data" desktop/app.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Copy-Item LICENSE.GPL3.md, LICENSE.MPL2.md, README.md dist/FastCausticDesign/
+          Copy-Item "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/share" dist/FastCausticDesign/native-dependency-notices -Recurse
+      - name: Verify the packaged GUI and exports
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory smoke | Out-Null
+          $process = Start-Process -FilePath "$PWD/dist/FastCausticDesign/FastCausticDesign.exe" `
+            -ArgumentList "--smoke-test", ('"{0}"' -f "$PWD/smoke") -PassThru
+          if (-not $process.WaitForExit(240000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "Packaged app timed out"
+          }
+          if ((Test-Path smoke/smoke.log) -and (Get-Content smoke/smoke.log -Raw) -eq "PASS" -and $process.ExitCode -eq 0) {
+            Write-Host "Packaged GUI, OBJ, and STL smoke test passed."
+          } else {
+            Get-ChildItem smoke -Filter *.log | Get-Content -Tail 60
+            throw "Packaged app smoke test failed"
+          }
+      - name: Archive
+        shell: pwsh
+        run: Compress-Archive -Path dist/FastCausticDesign -DestinationPath FastCausticDesign-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: FastCausticDesign-Windows-x64.zip
+          if-no-files-found: error
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-x64
+      - name: Publish verified ZIP
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(cat desktop/VERSION)"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release view "$tag" --json url --jq .url
+            exit 0
+          fi
+          gh release create "$tag" FastCausticDesign-Windows-x64.zip \
+            --target "$GITHUB_SHA" --title "Fast Caustic Design $version" \
+            --notes-file desktop/release-notes.md
